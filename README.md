@@ -1,3 +1,5 @@
+instructions to run the program at the beginning of file serviceControl.c
+
 # ServiceTool-Recruitment-
 
 ServiceTool is a command line tool meant to monitor the status of linux services
