@@ -1,6 +1,6 @@
 /*
- *  gestione servizi
- *	reclutamento team DIANA
+ *  Gestione Servizi
+ *	Reclutamento team DIANA
  *
  *	Autore: Andrea Grillo
  *	Ottobre 2020
@@ -15,10 +15,23 @@
  * utilizza i file <service>.lock 
  * per salvare lo stato dei servizi
  * 	
+ * 
+ * Compilare con:
+ * 		cc serviceControl.c -o NOMEFILE
+ * Per help scrivere: ./NOMEFILE SERVIZIO help
+ * 
+ * Il programma è stato testato su Debian 9.
+ * 
+ * Per farlo girare è necessario che i file eseguibili 
+ * dei servizi si trovano della cartella PATH.
+ * Modificare la costante PATH se necessario.
+ * 
+ * Per stampare i messaggi di debug è necessario
+ * definire la costante DEBUGGING.
  */
  
  //macro per il debug di informazioni utili
-#define DEBUGGING
+//#define DEBUGGING
 #ifdef DEBUGGING 
 #define DEBUG(arg ...) fprintf(stderr,arg);
 #else 
@@ -36,6 +49,7 @@
 
  // costanti dei nomi dei file in uso dal programma
  #define SERVICEFILE	"services.txt"
+ #define PATH 			"/bin/"
  
  // costanti degli stati di un servizio
  #define STARTED	0
@@ -99,6 +113,9 @@
 		// controllo status su file
 		checkStatus();
 		
+		DEBUG("status checked\n	nome: -%s-\n	pid: %d\n	stato: %d\n",servizio.nome,servizio.pid,servizio.stato);
+		
+		
 		// controllo degli stati di STARTING e STOPPING
 		if(servizio.stato == STARTING)
 		{
@@ -149,10 +166,10 @@
 			} else if(servizio.stato == STOPPING)
 			{
 				printf("Servizio già in fase di stopping");
-			} else if(servizio.stato == FAILED)
-			{
+			} /*else if(servizio.stato == FAILED)
+			{											se è fallito con lo stop ricominciamo	
 				printf("Il servizio è fallito");
-			} else if (servizio.stato == STARTING)
+			} */else if (servizio.stato == STARTING)
 			{
 				printf("il servizio è in stato di starting, riprova tra poco");
 			} else
@@ -298,8 +315,13 @@ void checkStatus()
 		
 		DEBUG("checkStatus: before fscanf\n");
 
-		//fscanf(fd,"%s %d %d",&servizio.nome, &servizio.pid, &servizio.stato);
-		DEBUG("checkStatus: after fscanf\n");
+		char nome[100];
+		
+		fscanf(fd,"%s %d %d",&nome, &servizio.pid, &servizio.stato);
+		DEBUG("checkStatus: after fscanf - nome -%s-\n",nome);
+
+		strcpy(servizio.nome,nome);
+		DEBUG("checkStatus: after strcpy  - nome -%s-\n",servizio.nome);
 
 		fclose(fd);		
 	} else
@@ -335,8 +357,6 @@ void writeStatus()
 	// "servizio.nome".lock
 	strcat(strcpy(fileName,servizio.nome),".lock");
 		
-
-	
 	DEBUG("nome file: %s\n",fileName);
 	
 	FILE * fd;
@@ -363,7 +383,12 @@ void startService()
 	if (pid == 0)
 	{
 		DEBUG("inside forked process, ready to start -%s-\n",servizio.nome);
-		execl("/bin/sh", "sh", "-c", servizio.nome, (char *) NULL);
+
+		if(execl("/bin/sh",servizio.nome, (char *) NULL) == -1)
+		{
+				perror("exec failed");
+				exit(-1);
+		}
 		DEBUG("should never reach there, after exec\n");
 		return;
 	} else
