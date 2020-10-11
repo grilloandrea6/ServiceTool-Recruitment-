@@ -1,36 +1,35 @@
 /*
- *  Gestione Servizi
- *	Reclutamento team DIANA
+ *  Service Management
+ *	Recruiting team DIANA
  *
- *	Autore: Andrea Grillo
- *	Ottobre 2020
+ *	Author: Andrea Grillo
+ *	October 2020
  *
- * comandi:
+ * commands:
  * 	start
  * 	stop
  * 	force-stop
  * 	status
  * 	help
  * 
- * utilizza i file <service>.lock 
- * per salvare lo stato dei servizi
+ * uses files <service>.lock 
+ * to save services' status
  * 	
  * 
- * Compilare con:
- * 		cc serviceControl.c -o NOMEFILE
- * Per help scrivere: ./NOMEFILE SERVIZIO help
+ * Compile with:
+ * 		cc serviceControl.c -o FILENAME
+ * To get help write: ./FILENAME SERVICE help
  * 
- * Il programma è stato testato su Debian 9.
+ * The program has been tested on Debian 9.
  * 
- * Per farlo girare è necessario che i file eseguibili 
- * dei servizi si trovano della cartella PATH.
- * Modificare la costante PATH se necessario.
+ * To run the program the services executables
+ * must be in the PATH directory.
+ * Modify the PATH constant if needed.
  * 
- * Per stampare i messaggi di debug è necessario
- * definire la costante DEBUGGING.
+ * To print debug message define constant DEBUGGING.
  */
  
- //macro per il debug di informazioni utili
+ //macro to print useful information.
 //#define DEBUGGING
 #ifdef DEBUGGING 
 #define DEBUG(arg ...) fprintf(stderr,arg);
@@ -38,7 +37,7 @@
 #define DEBUG(arg ...) {}
 #endif
  
- //include delle librerie
+ //includes
  #include <stdio.h>
  #include <unistd.h>
  #include <string.h>
@@ -47,11 +46,11 @@
  #include <sys/types.h>
  #include <sys/wait.h>
 
- // costanti dei nomi dei file in uso dal programma
+ // constants
  #define SERVICEFILE	"services.txt"
  #define PATH 			"/bin/"
  
- // costanti degli stati di un servizio
+ // service states constants
  #define STARTED	0
  #define STOPPED	1
  #define STARTING	2
@@ -64,7 +63,7 @@
 	 int stato;
  } service;
   
- //prototipi delle funzioni 
+// function prototypes
  bool serviceExists();
  
  void checkStatus();
@@ -79,7 +78,7 @@
  
  void forceStopService();
  
- //struct globale servizio
+ //global variable servizio
  service servizio;
  
  //main
@@ -87,14 +86,13 @@
  {
 		DEBUG("start main\n");
 		
-		// gli argomenti devono essere due, nome del servizio e comando da eseguire
+		// there must be 2 parameters, service name and command
 		if( argc != 3 )
 		{
-			fprintf(stderr,"ERRORE: numero di argomenti non valido.\n");
+			fprintf(stderr,"ERROR: numbers of parameters not valid.\n");
 			exit(-1);
 		}	
 		
-		//char * serviceName = argv[1];
 		servizio.nome = argv[1];
 		
 		char * command = argv[2];
@@ -102,55 +100,55 @@
 		DEBUG("	servizio: %s\n	comando: %s\n",servizio.nome,command);
 		
 		
-		if(!serviceExists(servizio) && strcmp(command,"help")!=0)
+		if(!serviceExists(servizio) && strcmp(command,"help")!=0) // if command==help don't mind about service existence
 		{
-			fprintf(stderr,"ERRORE: il servizio non è presente nel file services.txt\n");
+			fprintf(stderr,"ERROR: Service not found in services.txt\n");
 			exit(-1);
 		}	
 		
 		DEBUG("after serviceExists control\n");
 		
-		// controllo status su file
+		// status check in lock file
 		checkStatus();
 		
 		DEBUG("status checked\n	nome: -%s-\n	pid: %d\n	stato: %d\n",servizio.nome,servizio.pid,servizio.stato);
 		
 		
-		// controllo degli stati di STARTING e STOPPING
+		// check of STARTING and STOPPING statuses
 		if(servizio.stato == STARTING)
 		{
-			checkRealStatus();	//controllo sul pid del processo
+			checkRealStatus();	//check on process PID
 				
-			if(servizio.stato != STARTED)	// il processo non è partito, è fallito
+			if(servizio.stato != STARTED)	// process did not start -> FAILED
 			{
 				servizio.stato = FAILED;
 			}
 		}
 		else if(servizio.stato == STOPPING)
 		{
-			checkRealStatus();	//controllo sul pid del processo
+			checkRealStatus();	//check on process PID
 			
-			if(servizio.stato != STOPPED)	// il processo esiste ancora, non si è ancora fermato
+			if(servizio.stato != STOPPED)	// process still exists, it hasn't stopped yet
 			{
 				servizio.stato = STOPPING;
 			}
 		}
 		
 		
-		// parsing del comando da tastiera
+		// command parsing
 		if(strcmp(command,"start")==0)
 		{
 			DEBUG("start\n");
 			if(servizio.stato == STARTED)
 			{
-				printf("Servizio già in esecuzione");
+				printf("Service already running.\n");
 			}
 			else if(servizio.stato == STARTING)
 			{
-				printf("servizio già in fase di starting");
+				printf("Service already starting.\n");
 			} else if(servizio.stato == STOPPING)
 			{
-				printf("servizio in stato di stopping, riprova tra poco");
+				printf("Service stopping, retry.\n");
 			} else
 			{
 				startService();
@@ -162,16 +160,16 @@
 			DEBUG("stop\n");
 			if(servizio.stato == STOPPED)
 			{
-				printf("Servizio già fermato");
+				printf("Service already stopped.\n");
 			} else if(servizio.stato == STOPPING)
 			{
-				printf("Servizio già in fase di stopping");
+				printf("Service already stopping.\n");
 			} /*else if(servizio.stato == FAILED)
-			{											se è fallito con lo stop ricominciamo	
+			{											if it failed, use STOP command and it can be started again
 				printf("Il servizio è fallito");
 			} */else if (servizio.stato == STARTING)
 			{
-				printf("il servizio è in stato di starting, riprova tra poco");
+				printf("Service starting, retry.\n");
 			} else
 			{
 				stopService();
@@ -182,23 +180,16 @@
 			DEBUG("force-stop\n");
 			if(servizio.stato == STOPPED)
 			{
-				printf("Servizio già stopped");
-			} else
-			{
-				forceStopService(servizio.nome);
-				servizio.stato = STOPPING;
-			}if(servizio.stato == STOPPED)
-			{
-				printf("Servizio già fermato");
+				printf("Service already stopped.\n");
 			} else if(servizio.stato == STOPPING)
 			{
-				printf("Servizio già in fase di stopping");
-			} else if(servizio.stato == FAILED)
-			{
+				printf("Service already stopping.\n");
+			} /*else if(servizio.stato == FAILED)
+			{											if it failed, use STOP command and it can be started again
 				printf("Il servizio è fallito");
-			} else if (servizio.stato == STARTING)
+			} */else if (servizio.stato == STARTING)
 			{
-				printf("il servizio è in stato di starting, riprova tra poco");
+				printf("Service starting, retry.\n");
 			} else
 			{
 				forceStopService();
@@ -207,7 +198,7 @@
 		} else if(strcmp(command,"status")==0)
 		{
 			DEBUG("status\n");
-			printf("Lo stato del servizio é ");
+			printf("Service status is ");
 			switch(servizio.stato)
 			{
 				case 0:
@@ -226,7 +217,7 @@
 					printf("failed.\n");
 					break;
 				default:
-					printf("ERRORE: status undefined");
+					printf("ERROR: status undefined");
 					break;
 			}
 			
@@ -236,12 +227,13 @@
 			printf("usage: %s SERVICENAME COMMAND\n\ncommands:\n - start\n - stop\n - force-stop\n - status\n - help\n",argv[0]);
 		} else
 		{
-			fprintf(stderr,"ERRORE: comando non riconosciuto.\n");
+			fprintf(stderr,"ERROR: command not recognized.\n");
 			exit(-1);
 		}
 		
 		DEBUG("before calling writeStatus\n");
-		// scrivo lo stato attuale su file
+		
+		// write actual status on file
 		writeStatus(servizio.nome,servizio.stato);
 		
 		return 0;
@@ -250,7 +242,7 @@
  
  bool serviceExists()
  {
-	// controlla se serviceName è presente nel file SERVICEFILE
+	// check if service is present in file SERVICEFILE
 	
 	DEBUG("inside serviceExists()\n");
 	
@@ -263,7 +255,7 @@
 	
 	if(fdService == NULL)
 	{
-		perror("Errore apertura file servizi.");
+		perror("Error opening servicefile.");
 		exit(-1);
 	}
 
@@ -272,7 +264,8 @@
 	while ((read = getline(&line, &len, fdService)) != -1) 
 	{
 		DEBUG("serviceExists: inside while\n");
-		// se l'ultimo carattere della linea letta è un 'a capo' lo elimino dalla stringa
+
+		// if last character of line is a 'new line' it gets removed from string
 		if(line[strlen(line)-1]=='\n') line[strlen(line)-1] = '\0';
 		
 		if(strcmp(line,servizio.nome)==0)
@@ -290,9 +283,10 @@
  
 void checkStatus()
 {
+	// check service status on lock file
+	
 	DEBUG("inside checkStatus\n");
 
-	// TODO read file file exists read status
 	char nomeFile[strlen(servizio.nome)+6];
 	
 	// "servizio.nome".lock
@@ -309,7 +303,7 @@ void checkStatus()
 		
 		if(fd == NULL)
 		{
-			perror("Errore nell'apertura nel file lock");
+			perror("Error in lock file opening.");
 			exit(-1);
 		}
 		
@@ -334,6 +328,8 @@ void checkStatus()
 
 void checkRealStatus()
 {
+	// check service status using its PID
+	
 	if (getpgid(servizio.pid) >= 0)
 	{
 		servizio.stato = STARTED;
@@ -347,7 +343,8 @@ void checkRealStatus()
 
 void writeStatus()
 {
-	// scrivi status nel file
+	// write service status on lock file
+	
 	DEBUG("inside writeStatus\n");
 	
 	char fileName[strlen(servizio.nome)+6];
@@ -364,7 +361,7 @@ void writeStatus()
 	
 	if(fd == NULL)
 	{
-		perror("Errore apertura file lock.");
+		perror("Error in lock file opening.");
 		exit(-1);
 	}
 	
@@ -377,7 +374,8 @@ void writeStatus()
  
 void startService()
 {
-	// fai partire servizio
+	// start service
+	
 	DEBUG("inside startService\n");
 	int pid = fork();
 	if (pid == 0)
@@ -402,7 +400,8 @@ void startService()
  
 void stopService()
 {
-	// manda segnale SIGTERM al processo
+	// send SIGTERM signal to the process
+	
 	kill(servizio.pid,SIGTERM); 
 	servizio.stato = STOPPING;
 
@@ -411,7 +410,8 @@ void stopService()
  
  void forceStopService()
  {
-	 // manda segnale SIGKILL al processo
+	// send SIGKILL signal to the process
+	
 	 kill(servizio.pid,SIGKILL); 
 	 servizio.stato = STOPPING;
 
